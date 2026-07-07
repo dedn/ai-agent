@@ -108,6 +108,7 @@ Commands inside the chat: `/exit` to quit, `/reset` to clear memory.
 | `tools/weather.py` | weather tool (via `requests` + Open-Meteo) + its schema |
 | `tools/__init__.py` | aggregates `TOOLS_SCHEMA` + `TOOL_FUNCTIONS` |
 | `agent.py` | client, system prompt, agent loop, `<think>` strip, compaction, chat |
+| `console.py` | terminal UX: thinking spinner + token/context line |
 | `.env.example` | mimOE connection template |
 
 ## Limitations & next steps

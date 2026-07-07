@@ -23,6 +23,7 @@ AGENTS.md CLAUDE.md DECISIONS.md README.md
 ```
 solution-1-raw-agent/
   agent.py       # agent loop, chat interface, <think> stripping, level-2 compaction
+  console.py     # terminal UX: thinking spinner + token/context line
   config.py      # settings (base_url, model, temperature, limits) — LEAF
   tools/         # one tool = one file + __init__ aggregates
     __init__.py    builds TOOLS_SCHEMA + TOOL_FUNCTIONS
