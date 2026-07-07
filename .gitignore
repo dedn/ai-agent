@@ -1,0 +1,15 @@
+# local-only / not part of the public submission
+AGENTS.override.md
+GLOSSARY.md
+ROADMAP.md
+docs/
+
+# secrets & env
+.env
+
+# python / os
+.venv/
+venv/
+__pycache__/
+*.pyc
+.DS_Store
