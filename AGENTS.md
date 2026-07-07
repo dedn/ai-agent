@@ -40,8 +40,9 @@ solution-2-rag/
   store.py       # shared Chroma base + sentence-transformers embeddings
   tools.py       # search_documents, list_documents, add_document
   agent.py       # LangChain create_agent + chat loop; strips <think>
+  inspect_db.py  # show what's indexed in the base (counts, per-document)
   config.py      # settings (mimOE, paths, chunking, top-k, embed model) — LEAF
-  documents/     # your PDFs (private, gitignored)
+  documents/     # PDFs; a sample is committed, real docs are gitignored
   chroma_db/     # the vector base (generated, gitignored)
   requirements.txt .env.example .gitignore README.md
 ```

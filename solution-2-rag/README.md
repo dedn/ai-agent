@@ -78,7 +78,7 @@ cd solution-2-rag
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 cp .env.example .env
-# put your PDFs in documents/, then:
+# a sample document is already included; add your own PDFs to documents/ too if you like
 .venv/bin/python ingest.py      # phase 1: index (re-runnable, incremental)
 .venv/bin/python agent.py       # phase 2: chat
 ```
@@ -90,11 +90,22 @@ cp .env.example .env
 - **In chat:** "add the document at documents/strata-policy.pdf" → the agent calls the
   `add_document` tool.
 
+## Inspect the base
+
+```bash
+python inspect_db.py     # collection, chunk count, embedding dim, per-document breakdown
+```
+
+Under the hood the base is `chroma_db/`: `chroma.sqlite3` (text + metadata) plus an HNSW
+index folder (the vectors). You can also open `chroma.sqlite3` in any SQLite viewer.
+
 ## Files
 
 | File | Role |
 |---|---|
 | `config.py` | settings (mimOE, paths, chunking, top-k, embedding model) |
+| `inspect_db.py` | show what's indexed in the base (counts, per-document) |
+| `documents/sample-rental-agreement.pdf` | a fictional sample so the demo works out of the box |
 | `store.py` | shared Chroma base + sentence-transformers embeddings |
 | `ingest.py` | phase 1 — index PDFs into the base (re-runnable, incremental) |
 | `tools.py` | `search_documents`, `list_documents`, `add_document` |

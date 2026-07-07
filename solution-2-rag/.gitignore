@@ -3,5 +3,6 @@ venv/
 __pycache__/
 *.pyc
 .env
-documents/
+documents/*
+!documents/sample-rental-agreement.pdf
 chroma_db/
