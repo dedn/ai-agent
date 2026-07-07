@@ -6,8 +6,12 @@ Demonstrates agent mechanics "by hand":
   - agent loop: model requests a tool -> we run it -> return result -> repeat;
   - a backstop against runaway loops via an iteration cap.
 """
+import itertools
 import json
 import re
+import sys
+import threading
+import time
 
 from openai import OpenAI
 
@@ -17,9 +21,10 @@ from tools import TOOLS_SCHEMA, TOOL_FUNCTIONS
 # An "OpenAI" client that points at local mimOE (the essence of BYO Framework).
 client = OpenAI(base_url=config.BASE_URL, api_key=config.API_KEY)
 
-# How many tokens the last request used (usage.prompt_tokens from the API).
-# Auto-compaction uses it to gauge how full the context window is.
-_last_prompt_tokens = 0
+# Token bookkeeping, taken from `usage` in each API response.
+_last_prompt_tokens = 0        # window fill on the last call -> auto-compaction + display
+_turn_prompt_tokens = 0        # summed input tokens for the current turn
+_turn_completion_tokens = 0    # summed output tokens for the current turn
 
 # The system prompt sets the role. /no_think disables qwen3's reasoning mode.
 SYSTEM_PROMPT = (
@@ -29,16 +34,69 @@ SYSTEM_PROMPT = (
 )
 
 
+class Spinner:
+    """A small stdout spinner shown while a blocking call runs (TTY only)."""
+
+    FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+    def __init__(self, message: str = "thinking"):
+        self.message = message
+        self._stop = threading.Event()
+        self._thread = None
+        self._active = sys.stdout.isatty()   # no animation when piped/redirected
+
+    def __enter__(self):
+        if self._active:
+            self._thread = threading.Thread(target=self._spin, daemon=True)
+            self._thread.start()
+        return self
+
+    def _spin(self):
+        for frame in itertools.cycle(self.FRAMES):
+            if self._stop.is_set():
+                break
+            sys.stdout.write(f"\r  {frame} {self.message}...")
+            sys.stdout.flush()
+            time.sleep(0.08)
+
+    def __exit__(self, *exc):
+        if self._active:
+            self._stop.set()
+            self._thread.join()
+            sys.stdout.write("\r\033[K")   # clear the spinner line
+            sys.stdout.flush()
+
+
+def usage_line() -> str:
+    """One-line context/token summary for the turn just finished."""
+    window = config.MAX_CONTEXT_TOKENS
+    pct = (100 * _last_prompt_tokens / window) if window else 0
+    return (f"  [ctx {_last_prompt_tokens}/{window} ({pct:.0f}%) "
+            f"| this turn: {_turn_prompt_tokens} in + {_turn_completion_tokens} out]")
+
+
+def _track_usage(response) -> None:
+    """Update token counters from an API response."""
+    global _last_prompt_tokens, _turn_prompt_tokens, _turn_completion_tokens
+    if response.usage:
+        _last_prompt_tokens = response.usage.prompt_tokens
+        _turn_prompt_tokens += response.usage.prompt_tokens
+        _turn_completion_tokens += response.usage.completion_tokens
+
+
 def strip_think(text: str) -> str:
     """Strip qwen3's <think>...</think> reasoning markup.
 
-    Even with /no_think the model sometimes emits an empty or UNCLOSED <think>, so:
+    Even with /no_think the model sometimes emits an empty or UNCLOSED <think>
+    (e.g. it rambled and got cut off at max_tokens mid-reasoning), so:
       1) remove well-formed <think>...</think> blocks;
-      2) remove orphan <think> / </think> tags (their content is the answer itself).
+      2) remove an unclosed <think> that runs to the end (cut-off reasoning);
+      3) remove any orphan <think> / </think> tags.
     """
     text = text or ""
-    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
-    text = re.sub(r"</?think>", "", text)
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)   # closed blocks
+    text = re.sub(r"<think>.*$", "", text, flags=re.DOTALL)           # unclosed (cut off mid-think)
+    text = re.sub(r"</?think>", "", text)                            # orphan tags
     return text.strip()
 
 
@@ -70,15 +128,17 @@ def compact_history(history: list) -> None:
     convo = "\n".join(f"{m['role']}: {m.get('content', '')}" for m in old if m.get("content"))
     print(f"  [memory] window is full (~{_last_prompt_tokens} tokens) - summarizing older history...")
 
-    summary = client.chat.completions.create(
-        model=config.MODEL,
-        messages=[{
-            "role": "user",
-            "content": "Summarize the key facts of this dialogue (names, numbers, topics) "
-                       "in 2-3 sentences. Summary only, no preamble. /no_think\n\n" + convo,
-        }],
-        temperature=config.TEMPERATURE,
-    ).choices[0].message.content
+    with Spinner("summarizing"):
+        summary = client.chat.completions.create(
+            model=config.MODEL,
+            messages=[{
+                "role": "user",
+                "content": "Summarize the key facts of this dialogue (names, numbers, topics) "
+                           "in 2-3 sentences. Summary only, no preamble. /no_think\n\n" + convo,
+            }],
+            temperature=config.TEMPERATURE,
+            max_tokens=config.MAX_TOKENS,
+        ).choices[0].message.content
     summary = strip_think(summary)
 
     # In-place mutation: replace the whole old chunk with a single summary message.
@@ -91,21 +151,23 @@ def run_agent(user_input: str, history: list) -> str:
     history is the message list (short-term memory). We mutate it in place so the
     conversation remembers context across turns.
     """
-    global _last_prompt_tokens
+    global _turn_prompt_tokens, _turn_completion_tokens
     compact_history(history)   # level-2: auto-compact if the window is nearly full
     history.append({"role": "user", "content": user_input})
+    _turn_prompt_tokens = 0    # reset per-turn token counters
+    _turn_completion_tokens = 0
 
     for _ in range(config.MAX_ITERATIONS):
-        response = client.chat.completions.create(
-            model=config.MODEL,
-            messages=history,
-            tools=TOOLS_SCHEMA,          # give the model a "menu" of tools
-            tool_choice="auto",          # the model decides whether to call a tool
-            temperature=config.TEMPERATURE,
-        )
-        # Remember window fill; auto-compaction decisions are based on it.
-        if response.usage:
-            _last_prompt_tokens = response.usage.prompt_tokens
+        with Spinner("thinking"):
+            response = client.chat.completions.create(
+                model=config.MODEL,
+                messages=history,
+                tools=TOOLS_SCHEMA,          # give the model a "menu" of tools
+                tool_choice="auto",          # the model decides whether to call a tool
+                temperature=config.TEMPERATURE,
+                max_tokens=config.MAX_TOKENS,
+            )
+        _track_usage(response)               # window fill + turn totals
         msg = response.choices[0].message
 
         # Store the model's reply in history ALREADY without <think>, to avoid
@@ -123,9 +185,10 @@ def run_agent(user_input: str, history: list) -> str:
             ]
         history.append(assistant_msg)
 
-        # No tool request -> this is the final text answer.
+        # No tool request -> this is the final text answer. If the model only produced
+        # (now-stripped) reasoning and left nothing, fall back to a clear message.
         if not msg.tool_calls:
-            return content
+            return content or "(couldn't produce a clean answer - try rephrasing or narrowing the request)"
 
         # Otherwise run each requested tool and return its result. A malformed tool
         # call (bad JSON args, wrong params) is caught and returned as text so the
@@ -138,7 +201,7 @@ def run_agent(user_input: str, history: list) -> str:
                 result = fn(**args) if fn else f"unknown tool: {name}"
             except Exception as exc:
                 result = f"tool error: {exc}"
-            print(f"  [tool] {name}({tc.function.arguments}) = {result}")   # transparency
+            print(f"  [tool] {name}({tc.function.arguments})")   # show the call; result flows into the answer
             history.append({
                 "role": "tool",
                 "tool_call_id": tc.id,
@@ -178,7 +241,8 @@ def main() -> None:
             answer = run_agent(user_input, history)
         except Exception as exc:
             answer = f"(error talking to mimOE: {exc})"
-        print(f"Agent: {answer}\n")
+        print(f"Agent: {answer}")
+        print(usage_line() + "\n")
 
 
 if __name__ == "__main__":

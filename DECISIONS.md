@@ -88,6 +88,15 @@ trade-off.
   (docs-as-contract, ownership, ADR log) without the heavy tooling. Cutting the excess
   to fit the scale is itself a decision.
 
+### 0015 — Cap output length (max_tokens) and harden reasoning cleanup
+- **Context:** on a hard/ambiguous prompt ("weather in every US state") the model ran
+  away — reasoning in an unclosed `<think>` until it hit the server's ~2048-token
+  default, leaking the raw reasoning into the answer.
+- **Decision:** set `max_tokens` (512); strip an unclosed `<think>` too; fall back to a
+  clear message if only reasoning was produced.
+- **Why:** bounds runaway generation (cost, latency, garbage) and degrades gracefully.
+  Answers here are short, so 512 is generous. A real small-model failure mode, handled.
+
 ### 0014 — Tool description = contract
 - **Context:** for "15% of 2400" the model sent `"15% of 2400"` to the calculator,
   which failed to parse.

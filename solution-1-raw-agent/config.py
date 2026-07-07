@@ -23,6 +23,10 @@ MODEL = os.getenv("MIMOE_MODEL", "qwen3-4b")
 # Low temperature -> predictability and reliable tool calling (not creativity).
 TEMPERATURE = 0.2
 
+# Cap on output length: bounds runaway generation (e.g. the model rambling on a hard
+# or ambiguous prompt). Our answers are short, so this is generous.
+MAX_TOKENS = 512
+
 # Hard cap on agent-loop steps: a backstop against runaway loops (LOOP problem).
 MAX_ITERATIONS = 5
 
