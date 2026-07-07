@@ -14,7 +14,7 @@ Delivered as **two solutions** (see DECISIONS §0001).
 
 ```
 solution-1-raw-agent/   # solution 1: raw OpenAI SDK, manual agent loop
-solution-2-rag/         # solution 2: LangChain + Chroma RAG (planned)
+solution-2-rag/         # solution 2: LangChain + Chroma RAG over your documents
 AGENTS.md CLAUDE.md DECISIONS.md README.md
 ```
 
@@ -29,6 +29,20 @@ solution-1-raw-agent/
     __init__.py    builds TOOLS_SCHEMA + TOOL_FUNCTIONS
     calculator.py  logic + schema (own code, standard library)
     weather.py     logic + schema (wrapper over the requests package)
+  requirements.txt .env.example .gitignore README.md
+```
+
+## Solution 2 shape
+
+```
+solution-2-rag/
+  ingest.py      # phase 1: index PDFs from documents/ into Chroma (re-runnable)
+  store.py       # shared Chroma base + sentence-transformers embeddings
+  tools.py       # search_documents, list_documents, add_document
+  agent.py       # LangChain create_agent + chat loop; strips <think>
+  config.py      # settings (mimOE, paths, chunking, top-k, embed model) — LEAF
+  documents/     # your PDFs (private, gitignored)
+  chroma_db/     # the vector base (generated, gitignored)
   requirements.txt .env.example .gitignore README.md
 ```
 

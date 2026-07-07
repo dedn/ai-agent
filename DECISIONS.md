@@ -104,3 +104,51 @@ trade-off.
   multiplication (`2400 * 0.15`)".
 - **Why:** the model sends exactly what the description says. A precise tool
   description directly controls agent behavior (context engineering in action).
+
+---
+
+## Solution 2 (RAG agent over personal documents)
+
+### 0016 — Solution 2: RAG over the user's own documents
+- **Decision:** a local agent answering questions about the user's home documents
+  (contracts, policies), grounded in the actual files, with citations.
+- **Why:** the canonical RAG use case and a strong edge/privacy story — documents never
+  leave the device. Concrete and personally useful, not a toy FAQ.
+
+### 0017 — LangChain create_agent (not AgentExecutor, not hand-authored LangGraph)
+- **Context:** LangChain 1.x removed `AgentExecutor` / `create_react_agent` (moved to
+  `langchain-classic`); agents now run on LangGraph.
+- **Decision:** use `langchain.agents.create_agent` — the LangChain 1.x agent API.
+- **Why:** it's the documented path for a RAG agent — a one-liner in the `langchain`
+  package; we don't author a graph (LangGraph is just the runtime underneath). Raw
+  LangGraph would only pay off for custom loops/branching/human-in-the-loop, which we
+  don't need.
+
+### 0018 — Local embeddings via sentence-transformers
+- **Context:** the qwen3 models loaded in mimOE can't embed (`pooling type NONE`).
+- **Decision:** embed locally with sentence-transformers (`all-MiniLM-L6-v2`, 384-dim).
+- **Why:** keeps everything on-device; the embedding model is independent of the chat
+  model, so switching qwen3 → a bigger model needs NO re-index (only changing the
+  embedding model does).
+
+### 0019 — Recursive chunking + one Chroma base
+- **Decision:** recursive splitter (chunk 1000 / overlap 150); one Chroma collection for
+  all documents, each chunk tagged with `source` + `page`.
+- **Why:** recursive-with-overlap is the reliable default and keeps a clause intact; one
+  base with metadata means adding a document is just indexing into the same store, and
+  answers can cite source + page.
+
+### 0020 — Agentic tools + vector-search-only scope
+- **Decision:** three tools — `search_documents`, `list_documents`, `add_document` — plus
+  `ingest.py` for bulk indexing. Retrieval is vector search only.
+- **Why:** the model decides when to search vs answer (agentic RAG) and can index a new
+  doc on request. Hybrid search (BM25/RRF), reranking, and GraphRAG are overkill for a
+  single-source demo — documented as next steps.
+
+### 0021 — Cross-session conversation memory: not built (next step)
+- **Decision:** the document base persists across restarts, but chat history is
+  per-session (same as solution 1).
+- **Why:** for a document agent the persistent value is the indexed docs, not the chat.
+  Long-term conversation memory is the same technique as RAG applied to past
+  conversations (a separate Chroma collection) — kept as a next step to avoid
+  over-engineering the demo.
