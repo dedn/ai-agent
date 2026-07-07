@@ -97,7 +97,13 @@ python inspect_db.py     # collection, chunk count, embedding dim, per-document 
 ```
 
 Under the hood the base is `chroma_db/`: `chroma.sqlite3` (text + metadata) plus an HNSW
-index folder (the vectors). You can also open `chroma.sqlite3` in any SQLite viewer.
+index folder (the vectors). You can also open `chroma.sqlite3` in any SQLite viewer, or
+use the `sqlite3` CLI (bundled with macOS):
+
+```bash
+sqlite3 chroma_db/chroma.sqlite3 ".tables"                          # list tables
+sqlite3 chroma_db/chroma.sqlite3 "SELECT count(*) FROM embeddings;" # number of chunks
+```
 
 ## Files
 
