@@ -15,6 +15,7 @@ solution-2-rag/         # RAG over your documents (LangChain + Chroma)
 AGENTS.md               # conventions for contributors (human or AI)
 DECISIONS.md            # why the project is built this way (ADR log)
 CLAUDE.md               # short orientation pointer
+run.sh                  # launcher: ./run.sh 1 | 2 | ingest
 ```
 
 ## Quick start (solution 1)
@@ -40,6 +41,17 @@ cp .env.example .env
 # put your PDFs in documents/, then:
 .venv/bin/python ingest.py      # index your documents
 .venv/bin/python agent.py       # ask questions about them
+```
+
+## Run (after setup)
+
+Once each solution's venv exists (the steps above), launch from the repo root — the
+script picks the right venv and directory automatically:
+
+```bash
+./run.sh 1        # solution 1 (raw agent)
+./run.sh 2        # solution 2 (RAG document agent)
+./run.sh ingest   # (re)index solution 2's documents/
 ```
 
 See each solution's `README.md` for details, [AGENTS.md](AGENTS.md) for conventions,

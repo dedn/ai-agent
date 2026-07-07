@@ -15,7 +15,7 @@ Delivered as **two solutions** (see DECISIONS §0001).
 ```
 solution-1-raw-agent/   # solution 1: raw OpenAI SDK, manual agent loop
 solution-2-rag/         # solution 2: LangChain + Chroma RAG over your documents
-AGENTS.md CLAUDE.md DECISIONS.md README.md
+AGENTS.md CLAUDE.md DECISIONS.md README.md run.sh
 ```
 
 ## Solution 1 shape
