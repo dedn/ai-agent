@@ -15,13 +15,13 @@ from langchain_openai import ChatOpenAI
 import config
 from tools import TOOLS
 
-# Same BYO-Framework swap as solution 1, but through LangChain's ChatOpenAI.
+# BYO Framework via LangChain's ChatOpenAI.
 llm = ChatOpenAI(
     base_url=config.BASE_URL,
     api_key=config.API_KEY,
     model=config.MODEL,
     temperature=config.TEMPERATURE,
-    max_tokens=config.MAX_TOKENS,   # bound runaway generation (solution 1's lesson)
+    max_tokens=config.MAX_TOKENS,
 )
 
 SYSTEM_PROMPT = (
@@ -34,7 +34,7 @@ SYSTEM_PROMPT = (
 
 agent = create_agent(llm, TOOLS, system_prompt=SYSTEM_PROMPT)
 
-# Backstop against a runaway tool loop (graph steps ~= 2 per tool cycle).
+# backstop against a runaway tool loop
 _INVOKE_CONFIG = {"recursion_limit": 2 * config.MAX_ITERATIONS}
 
 _THINK = re.compile(r"<think>.*?</think>|<think>.*$|</?think>", re.DOTALL)
@@ -65,7 +65,7 @@ def main() -> None:
         messages.append(HumanMessage(question))
         try:
             result = agent.invoke({"messages": messages}, _INVOKE_CONFIG)
-            messages = result["messages"]                 # keep tool + assistant turns as memory
+            messages = result["messages"]   # keep the full turn as memory
             answer = clean(messages[-1].content) or "(no answer)"
         except Exception as exc:
             answer = f"(error: {exc})"

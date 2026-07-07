@@ -14,7 +14,7 @@ from tools import TOOLS_SCHEMA, TOOL_FUNCTIONS
 
 client = OpenAI(base_url=config.BASE_URL, api_key=config.API_KEY)
 
-# Token counters from each API response (used for the display line and compaction).
+# token counters (usage line + compaction)
 _last_prompt_tokens = 0
 _turn_prompt_tokens = 0
 _turn_completion_tokens = 0
@@ -85,14 +85,14 @@ def run_agent(user_input: str, history: list) -> str:
                 model=config.MODEL,
                 messages=history,
                 tools=TOOLS_SCHEMA,
-                tool_choice="auto",             # the model decides whether to call a tool
+                tool_choice="auto",
                 temperature=config.TEMPERATURE,
-                max_tokens=config.MAX_TOKENS,   # bound runaway generation
+                max_tokens=config.MAX_TOKENS,
             )
         _track_usage(response)
         msg = response.choices[0].message
 
-        # Store the reply already without <think>; it may carry a tool request.
+        # store without <think>; may carry a tool request
         content = strip_think(msg.content)
         assistant_msg = {"role": "assistant", "content": content}
         if msg.tool_calls:
