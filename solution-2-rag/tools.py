@@ -42,8 +42,13 @@ def add_document(path: str) -> str:
     from ingest import index_pdf
     if not os.path.exists(path):
         return f"File not found: {path}"
-    added = index_pdf(path, get_vectorstore())
-    return f"Added {added} chunks from {os.path.basename(path)}." if added else "Already indexed."
+    status, n = index_pdf(path, get_vectorstore())
+    name = os.path.basename(path)
+    if status == "added":
+        return f"Added {n} chunks from {name}."
+    if status == "empty":
+        return f"No extractable text in {name} (scanned PDF? needs OCR)."
+    return "Already indexed."
 
 
 TOOLS = [search_documents, list_documents, add_document]
