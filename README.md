@@ -15,8 +15,15 @@ solution-2-rag/         # RAG over your documents (LangChain + Chroma)
 AGENTS.md               # conventions for contributors (human or AI)
 DECISIONS.md            # why the project is built this way (ADR log)
 CLAUDE.md               # short orientation pointer
-run.sh                  # launcher: ./run.sh 1 | 2 | ingest
+run.sh                  # launcher: ./run.sh 1 | 2 | ingest | inspect
 ```
+
+## Prerequisites
+
+- **mimOE Studio** installed and running, with a tool-use-capable model **loaded**
+  (default `qwen3-4b`). Download from developer.mimik.com; the endpoint is shown under
+  the API button in Model View. Set `MIMOE_MODEL` in `.env` to match the loaded model.
+- **Python 3.11+**. Each solution has its own venv (created in the steps below).
 
 ## Quick start (solution 1)
 
@@ -28,9 +35,6 @@ cp .env.example .env          # adjust to your mimOE URL / loaded model
 .venv/bin/python agent.py
 ```
 
-Requires mimOE Studio running with a tool-use-capable model **loaded**
-(default `qwen3-4b`).
-
 ## Quick start (solution 2 — RAG over your documents)
 
 ```bash
@@ -38,8 +42,8 @@ cd solution-2-rag
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 cp .env.example .env
-# put your PDFs in documents/, then:
-.venv/bin/python ingest.py      # index your documents
+# a sample document is already included; add your own PDFs to documents/ too if you like
+.venv/bin/python ingest.py      # index the documents
 .venv/bin/python agent.py       # ask questions about them
 ```
 
@@ -52,6 +56,7 @@ script picks the right venv and directory automatically:
 ./run.sh 1        # solution 1 (raw agent)
 ./run.sh 2        # solution 2 (RAG document agent)
 ./run.sh ingest   # (re)index solution 2's documents/
+./run.sh inspect  # show what's in solution 2's base
 ```
 
 See each solution's `README.md` for details, [AGENTS.md](AGENTS.md) for conventions,
